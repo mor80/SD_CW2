@@ -1,0 +1,25 @@
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, String, DateTime, Integer, JSON
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from .settings import settings
+
+Base = declarative_base()
+engine = create_async_engine(settings.database_url, echo=False)
+SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+class AnalysisRecord(Base):
+    __tablename__ = "analysis"
+
+    file_id = Column(PG_UUID(as_uuid=True), primary_key=True)
+    filename = Column(String, nullable=False)
+    sha256 = Column(String(64), nullable=False, index=True)
+    simhash = Column(String(16), nullable=False, index=True)  # store hex
+    stats = Column(JSON, nullable=False)
+    duplicate_of = Column(PG_UUID(as_uuid=True), nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)

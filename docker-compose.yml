@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${FILESTORE_DB_NAME:-store}
+      POSTGRES_USER: ${FILESTORE_DB_USER:-store}
+      POSTGRES_PASSWORD: ${FILESTORE_DB_PASSWORD:-secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  filestore:
+    build:
+      context: .
+      dockerfile: file_store/Dockerfile
+    env_file: .env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/files:${FILESTORE_STORAGE_DIR:-/data/files}
+    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+
+  analysis:
+    build:
+      context: .
+      dockerfile: file_analysis/Dockerfile
+    env_file: .env
+    depends_on:
+      - db
+      - filestore
+    ports:
+      - "8001:8001"
+    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001" ]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: api_gateway/Dockerfile
+    env_file: .env
+    depends_on:
+      - filestore
+      - analysis
+    ports:
+      - "8002:${GATEWAY_PORT:-8002}"
+    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${GATEWAY_PORT:-8002}" ]
+
+volumes:
+  db_data:
